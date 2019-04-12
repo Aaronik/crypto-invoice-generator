@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (placeholder)
+import Html.Attributes exposing (class, placeholder)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
 import Json.Encode as Encode
@@ -63,4 +63,4 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div [] [ text "Hello, world" ]
+    div [ class "container" ] [ text "Hello, world" ]
