@@ -7,9 +7,11 @@
   },
   "dependencies": {
     "body-parser": "1.18.3",
-    "express": "4.16.4"
+    "cookie-parser": "^1.4.4",
+    "express": "4.16.4",
+    "guid": "0.0.12"
   },
   "devDependencies": {
-    "elm": "0.19.0-bugfix6"
+    "elm": "^0.19.0"
   }
 }
