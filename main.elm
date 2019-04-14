@@ -1,11 +1,13 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Navigation exposing (pushUrl)
 import Html exposing (..)
 import Html.Attributes exposing (attribute, autofocus, class, classList, placeholder)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
 import Json.Encode as Encode
+import Url
 
 
 
@@ -25,7 +27,7 @@ signin username password =
     Http.post
         { url = "/signin"
         , body = Http.jsonBody (usernamePasswordJsonEncoder username password)
-        , expect = Http.expectString SignedIn
+        , expect = Http.expectString SignInResult
         }
 
 
@@ -34,7 +36,7 @@ signup username password =
     Http.post
         { url = "/signup"
         , body = Http.jsonBody (usernamePasswordJsonEncoder username password)
-        , expect = Http.expectString SignedIn
+        , expect = Http.expectString SignInResult
         }
 
 
@@ -42,12 +44,15 @@ signup username password =
 -- MAIN
 
 
+main : Program () Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
+        , view = view
         , update = update
         , subscriptions = subscriptions
-        , view = view
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 
@@ -58,7 +63,6 @@ main =
 type alias Model =
     { isSigningIn : Bool
     , isSigningUp : Bool
-    , token : String
     , username : String
     , password : String
     }
@@ -67,16 +71,17 @@ type alias Model =
 type Msg
     = SignIn
     | SignUp
-    | SignedIn (Result Http.Error String)
+    | SignInResult (Result Http.Error String)
     | UpdateUsername String
     | UpdatePassword String
+    | UrlChanged Url.Url
+    | LinkClicked Browser.UrlRequest
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
+init flags url key =
     ( { isSigningIn = False
       , isSigningUp = False
-      , token = ""
       , username = ""
       , password = ""
       }
@@ -103,13 +108,19 @@ update msg model =
         SignUp ->
             ( { model | isSigningUp = True }, signup model.username model.password )
 
-        SignedIn result ->
+        SignInResult result ->
             case result of
                 Err err ->
                     ( model, Cmd.none )
 
-                Ok token ->
-                    ( { model | token = token }, Cmd.none )
+                Ok _ ->
+                    ( model, Cmd.none )
+
+        UrlChanged _ ->
+            ( model, Cmd.none )
+
+        LinkClicked _ ->
+            ( model, Cmd.none )
 
 
 
@@ -162,37 +173,41 @@ primaryInput pholder msg =
         ]
 
 
-signinPage : Model -> Html Msg
+signinPage : Model -> Browser.Document Msg
 signinPage model =
-    section [ class "hero is-success is-fullheight" ]
-        [ navbar
-        , div [ class "hero-body" ]
-            [ div [ class "container" ]
-                [ primaryInput "Username" UpdateUsername
-                , primaryInput "Password" UpdatePassword
-                , div [ class "field is-grouped level" ]
-                    [ p [ class "control level-item" ]
-                        [ button
-                            [ class "button is-primary is-large"
-                            , classList [ ( "is-loading", model.isSigningIn ), ( "is-inverted", not model.isSigningIn ) ]
-                            , onClick SignIn
+    { title = "Invoice Generator | Sign In"
+    , body =
+        [ section [ class "hero is-success is-fullheight" ]
+            [ navbar
+            , div [ class "hero-body" ]
+                [ div [ class "container" ]
+                    [ primaryInput "Username" UpdateUsername
+                    , primaryInput "Password" UpdatePassword
+                    , div [ class "field is-grouped level" ]
+                        [ p [ class "control level-item" ]
+                            [ button
+                                [ class "button is-primary is-large"
+                                , classList [ ( "is-loading", model.isSigningIn ), ( "is-inverted", not model.isSigningIn ) ]
+                                , onClick SignIn
+                                ]
+                                [ text "Sign In" ]
                             ]
-                            [ text "Sign In" ]
-                        ]
-                    , p [ class "control level-item" ]
-                        [ button
-                            [ class "button is-primary is-large"
-                            , classList [ ( "is-loading", model.isSigningUp ), ( "is-inverted", not model.isSigningUp ) ]
-                            , onClick SignUp
+                        , p [ class "control level-item" ]
+                            [ button
+                                [ class "button is-primary is-large"
+                                , classList [ ( "is-loading", model.isSigningUp ), ( "is-inverted", not model.isSigningUp ) ]
+                                , onClick SignUp
+                                ]
+                                [ text "Sign Up" ]
                             ]
-                            [ text "Sign Up" ]
                         ]
                     ]
                 ]
             ]
         ]
+    }
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
     signinPage model
