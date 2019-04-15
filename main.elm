@@ -83,6 +83,14 @@ createInvoice =
         }
 
 
+fetchInvoices : Cmd Msg
+fetchInvoices =
+    Http.get
+        { url = "/invoices"
+        , expect = Http.expectJson FetchInvoicesResult (Decode.list invoiceJsonDecoder)
+        }
+
+
 
 -- MAIN
 
@@ -133,6 +141,7 @@ type Msg
     | LinkClicked Browser.UrlRequest
     | CreateInvoice
     | CreateInvoiceResult (Result Http.Error Invoice)
+    | FetchInvoicesResult (Result Http.Error (List Invoice))
 
 
 type alias Flags =
@@ -201,8 +210,21 @@ update msg model =
                 Ok invoice ->
                     ( { model | invoices = invoice :: model.invoices }, Cmd.none )
 
+        FetchInvoicesResult result ->
+            case result of
+                Err err ->
+                    ( model, Cmd.none )
+
+                Ok invoices ->
+                    ( { model | invoices = invoices }, Cmd.none )
+
         UrlChanged url ->
-            ( { model | page = url.path }, Cmd.none )
+            case url.path of
+                "/invoices" ->
+                    ( { model | page = url.path }, fetchInvoices )
+
+                _ ->
+                    ( { model | page = url.path }, Cmd.none )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -342,7 +364,7 @@ invoicesToUl invoices =
         (List.map
             (\i ->
                 li []
-                    [ a [ href ("/invoice/" ++ i.id) ]
+                    [ a [ href ("/invoices/" ++ i.id) ]
                         [ h3 [] [ text i.date ]
                         ]
                     , span [] [ text i.from ]

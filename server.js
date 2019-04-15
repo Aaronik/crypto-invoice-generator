@@ -28,7 +28,7 @@ class Db {
   }
 
   findInvoicesByUsername(username) {
-    return this.invoices.find(invoice => invoice.username === user.username)
+    return this.invoices.filter(invoice => invoice.username === username)
   }
 
   createInvoiceForUsername(username) {
@@ -134,7 +134,7 @@ app.get('/signout', onlyUser, (req, res) => {
 app.get('/invoices', onlyUser, (req, res) => {
   const user = req.user
 
-  const invoices = db.findInvoicesByUsername(username)
+  const invoices = db.findInvoicesByUsername(user.username)
 
   res.format({
     json: () => {
@@ -159,7 +159,8 @@ app.post('/create', onlyUser, (req, res) => {
 })
 
 // Serve the html
-app.get(['/', '/signin', '/invoices'], (req, res) => {
+app.get(['/', '/signin', '/invoices', '/invoices/:id'], (req, res) => {
+  console.log(req.params)
   res.sendFile(path.resolve(__dirname, './index.html'))
 })
 
