@@ -206,7 +206,7 @@ searchBar =
 
 navbar : Model -> Html Msg
 navbar model =
-    nav [ class "navbar" ]
+    nav [ class "navbar is-primary" ]
         [ div [ class "navbar-brand" ]
             [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
             ]

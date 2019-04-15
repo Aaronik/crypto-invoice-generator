@@ -53,11 +53,6 @@ app.use(cookieParser())
 // Serve all the static files
 app.use(express.static(path.resolve(__dirname, './dist')))
 
-// Serve the html
-app.get(['/', '/signin'], (req, res) => {
-  res.sendFile(path.resolve(__dirname, './index.html'))
-})
-
 app.post('/signup', (req, res) => {
   // TODO handle duplicate usernames
   console.log("/signup", req.body)
@@ -111,7 +106,20 @@ app.get('/invoices', onlyUser, (req, res) => {
 
   const invoices = db.invoices.find(invoice => invoice.username === user.username)
 
-  res.status(200).json(invoices)
+  res.format({
+    json: () => {
+      res.status(200).json(invoices)
+    },
+
+    html: () => {
+      res.sendFile(path.resolve(__dirname, './index.html'))
+    }
+  })
+})
+
+// Serve the html
+app.get(['/', '/signin', '/invoices'], (req, res) => {
+  res.sendFile(path.resolve(__dirname, './index.html'))
 })
 
 // Fire up the serving!
