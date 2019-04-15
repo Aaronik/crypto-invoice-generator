@@ -76,14 +76,12 @@ app.post('/signin', (req, res) => {
   if (user) {
     const token = generateToken()
     user.tokens.push(token)
+    res.cookie('token', token)
 
     return res.status(201).json({ token })
   } else {
     return res.status(401).json({ message: 'Invalid credentials' })
   }
-
-  res.cookie('token', token)
-  res.status(201).json({})
 })
 
 app.get('/signout', onlyUser, (req, res) => {
