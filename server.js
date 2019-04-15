@@ -52,11 +52,12 @@ app.use(cookieParser())
 app.use(express.static(path.resolve(__dirname, './dist')))
 
 // Serve the html
-app.get('/', (req, res) => {
+app.get('/*', (req, res) => {
   res.sendFile(path.resolve(__dirname, './index.html'))
 })
 
 app.post('/signup', (req, res) => {
+  // TODO handle duplicate usernames
   console.log("/signup", req.body)
 
   const { username, password } = req.body
@@ -91,6 +92,8 @@ app.post('/signin', (req, res) => {
 app.get('/signout', onlyUser, (req, res) => {
   const token = req.cookies.token
   const user = req.user
+
+  console.log('/signout:', user)
 
   // invalidate this token in the db
   user.tokens = user.tokens.filter(t => t !== token)

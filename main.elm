@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (attribute, autofocus, class, classList, placeholder)
+import Html.Attributes exposing (attribute, autofocus, class, classList, href, placeholder)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
 import Json.Encode as Encode
@@ -40,6 +40,11 @@ signup username password =
         }
 
 
+signout : Cmd Msg
+signout =
+    Nav.load pages.signout
+
+
 
 -- MAIN
 
@@ -63,6 +68,7 @@ main =
 pages =
     { signin = "/signin"
     , invoices = "/invoices"
+    , signout = "/signout"
     }
 
 
@@ -93,7 +99,7 @@ init flags url key =
       , isSigningUp = False
       , username = ""
       , password = ""
-      , page = ""
+      , page = url.path
       }
     , Cmd.none
     )
@@ -121,16 +127,22 @@ update msg model =
         SignInResult result ->
             case result of
                 Err err ->
-                    ( model, Cmd.none )
+                    ( { model | isSigningIn = False, isSigningUp = False }, Cmd.none )
 
                 Ok _ ->
-                    ( model, Nav.pushUrl model.key pages.invoices )
+                    ( { model | isSigningIn = False, isSigningUp = False }, Nav.pushUrl model.key pages.invoices )
 
         UrlChanged url ->
             ( { model | page = url.path }, Cmd.none )
 
-        LinkClicked _ ->
-            ( model, Cmd.none )
+        -- TODO Working on signout button
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.load url.path )
+
+                Browser.External url ->
+                    ( model, Nav.load url )
 
 
 
@@ -162,11 +174,14 @@ searchBar =
         ]
 
 
-navbar : Html Msg
-navbar =
+navbar : Model -> Html Msg
+navbar model =
     nav [ class "navbar" ]
         [ div [ class "navbar-brand" ]
-            [ a [ class "navbar-item" ] [ text "Invoice Generator" ]
+            [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
+            ]
+        , div [ class "navbar-end" ]
+            [ a [ class "navbar-item", href pages.signout ] [ text "Sign Out" ]
             ]
         ]
 
@@ -183,12 +198,23 @@ primaryInput pholder msg =
         ]
 
 
+homePage : Model -> Browser.Document Msg
+homePage model =
+    { title = "Invoice Generator | Home"
+    , body =
+        [ section [ class "hero is-success is-fullheight" ]
+            [ navbar model
+            ]
+        ]
+    }
+
+
 signinPage : Model -> Browser.Document Msg
 signinPage model =
     { title = "Invoice Generator | Sign In"
     , body =
         [ section [ class "hero is-success is-fullheight" ]
-            [ navbar
+            [ navbar model
             , div [ class "hero-body" ]
                 [ div [ class "container" ]
                     [ primaryInput "Username" UpdateUsername
@@ -200,7 +226,7 @@ signinPage model =
                                 , classList [ ( "is-loading", model.isSigningIn ), ( "is-inverted", not model.isSigningIn ) ]
                                 , onClick SignIn
                                 ]
-                                [ text ("Sign In " ++ model.page) ]
+                                [ text "Sign In" ]
                             ]
                         , p [ class "control level-item" ]
                             [ button
@@ -222,7 +248,7 @@ invoicesPage : Model -> Browser.Document Msg
 invoicesPage model =
     { title = "Invoice Generator | Invoices"
     , body =
-        [ navbar
+        [ navbar model
         , div [] [ text "invoices" ]
         ]
     }
@@ -232,7 +258,7 @@ invoicePage : Model -> Browser.Document Msg
 invoicePage model =
     { title = "Invoice Generator | Invoice"
     , body =
-        [ navbar
+        [ navbar model
         , div [] [ text "invoice" ]
         ]
     }
@@ -242,6 +268,9 @@ view : Model -> Browser.Document Msg
 view model =
     case model.page of
         "" ->
+            homePage model
+
+        "/signin" ->
             signinPage model
 
         "/invoices" ->
