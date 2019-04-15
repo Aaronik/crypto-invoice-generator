@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Browser.Navigation exposing (pushUrl)
+import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (attribute, autofocus, class, classList, placeholder)
 import Html.Events exposing (onClick, onInput, onSubmit)
@@ -60,11 +60,19 @@ main =
 -- MODEL
 
 
+pages =
+    { signin = "/signin"
+    , invoices = "/invoices"
+    }
+
+
 type alias Model =
-    { isSigningIn : Bool
+    { key : Nav.Key
+    , isSigningIn : Bool
     , isSigningUp : Bool
     , username : String
     , password : String
+    , page : String
     }
 
 
@@ -78,12 +86,14 @@ type Msg
     | LinkClicked Browser.UrlRequest
 
 
-init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { isSigningIn = False
+    ( { key = key
+      , isSigningIn = False
       , isSigningUp = False
       , username = ""
       , password = ""
+      , page = ""
       }
     , Cmd.none
     )
@@ -114,10 +124,10 @@ update msg model =
                     ( model, Cmd.none )
 
                 Ok _ ->
-                    ( model, Cmd.none )
+                    ( model, Nav.pushUrl model.key pages.invoices )
 
-        UrlChanged _ ->
-            ( model, Cmd.none )
+        UrlChanged url ->
+            ( { model | page = url.path }, Cmd.none )
 
         LinkClicked _ ->
             ( model, Cmd.none )
@@ -190,7 +200,7 @@ signinPage model =
                                 , classList [ ( "is-loading", model.isSigningIn ), ( "is-inverted", not model.isSigningIn ) ]
                                 , onClick SignIn
                                 ]
-                                [ text "Sign In" ]
+                                [ text ("Sign In " ++ model.page) ]
                             ]
                         , p [ class "control level-item" ]
                             [ button
@@ -208,6 +218,34 @@ signinPage model =
     }
 
 
+invoicesPage : Model -> Browser.Document Msg
+invoicesPage model =
+    { title = "Invoice Generator | Invoices"
+    , body =
+        [ navbar
+        , div [] [ text "invoices" ]
+        ]
+    }
+
+
+invoicePage : Model -> Browser.Document Msg
+invoicePage model =
+    { title = "Invoice Generator | Invoice"
+    , body =
+        [ navbar
+        , div [] [ text "invoice" ]
+        ]
+    }
+
+
 view : Model -> Browser.Document Msg
 view model =
-    signinPage model
+    case model.page of
+        "" ->
+            signinPage model
+
+        "/invoices" ->
+            invoicesPage model
+
+        _ ->
+            invoicePage model
