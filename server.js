@@ -24,8 +24,10 @@ const generateToken = () => {
 // Use this as express middleware on routes only
 // signed in users should be able to access.
 const onlyUser = (req, res, next) => {
-  const reject = () => res.redirect(301, '/') // redirect to signin
-
+  const reject = () => {
+    res.clearCookie('token') // make sure client doesn't have lingering cookies
+    res.redirect(302, '/signin') // redirect to signin
+  }
 
   const token = req.cookies.token
 
@@ -35,7 +37,7 @@ const onlyUser = (req, res, next) => {
     return user.tokens.some(t => t === token)
   })
 
-  // If the user is not signed in, we'll send em a 401
+  // If the user is not signed in, we'll reject em
   if (!user) return reject()
 
   // If they are, we'll attach their user object to req
@@ -52,7 +54,7 @@ app.use(cookieParser())
 app.use(express.static(path.resolve(__dirname, './dist')))
 
 // Serve the html
-app.get('/*', (req, res) => {
+app.get(['/', '/signin'], (req, res) => {
   res.sendFile(path.resolve(__dirname, './index.html'))
 })
 
@@ -101,7 +103,7 @@ app.get('/signout', onlyUser, (req, res) => {
   // nix the token from the cookies
   res.clearCookie('token')
 
-  res.status(200).json({})
+  res.redirect('/')
 })
 
 app.get('/invoices', onlyUser, (req, res) => {

@@ -8,6 +8,14 @@
   </head>
   <body>
     <div id="app-container"></div>
-    <script>Elm.Main.init({ node: document.getElementById('app-container') })</script>
+    <script>
+      console.log(document.cookie)
+      Elm.Main.init({
+        node: document.getElementById('app-container'),
+        flags: {
+          isSignedIn: document.cookie !== "" // If there are any cookies, we're signed in. Will change if ever use other cookies than auth.
+        }
+      })
+    </script>
   </body>
 </html>

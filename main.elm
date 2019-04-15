@@ -40,16 +40,16 @@ signup username password =
         }
 
 
-signout : Cmd Msg
-signout =
-    Nav.load pages.signout
+signout : Url.Url -> Cmd Msg
+signout url =
+    Nav.load (Url.toString url)
 
 
 
 -- MAIN
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.application
         { init = init
@@ -69,6 +69,7 @@ pages =
     { signin = "/signin"
     , invoices = "/invoices"
     , signout = "/signout"
+    , home = "/"
     }
 
 
@@ -76,6 +77,7 @@ type alias Model =
     { key : Nav.Key
     , isSigningIn : Bool
     , isSigningUp : Bool
+    , isSignedIn : Bool
     , username : String
     , password : String
     , page : String
@@ -92,16 +94,30 @@ type Msg
     | LinkClicked Browser.UrlRequest
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+type alias Flags =
+    { isSignedIn : Bool
+    }
+
+
+init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     ( { key = key
       , isSigningIn = False
       , isSigningUp = False
+      , isSignedIn = flags.isSignedIn
       , username = ""
       , password = ""
-      , page = url.path
+      , page = "/"
       }
-    , Cmd.none
+    , if flags.isSignedIn then
+        if url.path == pages.signin then
+            Nav.pushUrl key pages.home
+
+        else
+            Nav.pushUrl key url.path
+
+      else
+        Nav.pushUrl key pages.signin
     )
 
 
@@ -130,7 +146,7 @@ update msg model =
                     ( { model | isSigningIn = False, isSigningUp = False }, Cmd.none )
 
                 Ok _ ->
-                    ( { model | isSigningIn = False, isSigningUp = False }, Nav.pushUrl model.key pages.invoices )
+                    ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True }, Nav.pushUrl model.key pages.invoices )
 
         UrlChanged url ->
             ( { model | page = url.path }, Cmd.none )
@@ -139,7 +155,12 @@ update msg model =
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.load url.path )
+                    case url.path of
+                        "/signout" ->
+                            ( model, signout url )
+
+                        _ ->
+                            ( model, Nav.load url.path )
 
                 Browser.External url ->
                     ( model, Nav.load url )
@@ -156,6 +177,15 @@ subscriptions model =
 
 
 -- VIEW
+
+
+title : Html Msg
+title =
+    div [ class "container" ]
+        [ div [ class "hero has-text-centered level" ]
+            [ h1 [ class "" ] [ text "Invoice Generator" ]
+            ]
+        ]
 
 
 searchBar : Html Msg
@@ -181,7 +211,15 @@ navbar model =
             [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
             ]
         , div [ class "navbar-end" ]
-            [ a [ class "navbar-item", href pages.signout ] [ text "Sign Out" ]
+            [ a [ class "navbar-item", href pages.signout ]
+                [ text
+                    (if model.isSignedIn then
+                        "Sign Out"
+
+                     else
+                        ""
+                    )
+                ]
             ]
         ]
 
@@ -204,6 +242,7 @@ homePage model =
     , body =
         [ section [ class "hero is-success is-fullheight" ]
             [ navbar model
+            , title
             ]
         ]
     }
@@ -267,7 +306,7 @@ invoicePage model =
 view : Model -> Browser.Document Msg
 view model =
     case model.page of
-        "" ->
+        "/" ->
             homePage model
 
         "/signin" ->
