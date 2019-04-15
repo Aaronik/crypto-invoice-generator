@@ -7,7 +7,7 @@ const Guid         = require('guid')
 
 let db = {
   users: [],   // { username: string, password: string, tokens: string[] }
-  invoices: []
+  invoices: [] // { username: string, ... }
 }
 
 const validateCredentials = (username, password) => {
@@ -24,7 +24,8 @@ const generateToken = () => {
 // Use this as express middleware on routes only
 // signed in users should be able to access.
 const onlyUser = (req, res, next) => {
-  const reject = () => res.status(401).send()
+  const reject = () => res.redirect(301, '/') // redirect to signin
+
 
   const token = req.cookies.token
 
@@ -98,6 +99,14 @@ app.get('/signout', onlyUser, (req, res) => {
   res.clearCookie('token')
 
   res.status(200).json({})
+})
+
+app.get('/invoices', onlyUser, (req, res) => {
+  const user = req.user
+
+  const invoices = db.invoices.find(invoice => invoice.username === user.username)
+
+  res.status(200).json(invoices)
 })
 
 // Fire up the serving!
