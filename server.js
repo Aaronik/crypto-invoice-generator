@@ -5,16 +5,51 @@ const bodyParser   = require('body-parser')
 const cookieParser = require('cookie-parser')
 const Guid         = require('guid')
 
-let db = {
-  users: [],   // { username: string, password: string, tokens: string[] }
-  invoices: [] // { username: string, ... }
+class Db {
+  constructor() {
+    this.users = [] // { username: string, password: string, tokens: string[] }
+    this.invoices = [] // { username: string, ... }
+  }
+
+  addUser(user) {
+    this.users.push(user)
+  }
+
+  validateCredentials(username, password) {
+    return this.users.find(user => {
+      return user.username === username && user.password === password
+    })
+  }
+
+  findUserByToken(token) {
+    return this.users.find(user => {
+      return user.tokens.some(t => t === token)
+    })
+  }
+
+  findInvoicesByUsername(username) {
+    return this.invoices.find(invoice => invoice.username === user.username)
+  }
+
+  createInvoiceForUsername(username) {
+    const newInvoice = {
+      id: Guid.raw(),
+      username: username,
+      date: new Date(),       // When it's created
+      total: 0,               // The initial charge
+      paid: 0,                // How much has been paid
+      to: '',
+      from: '',
+      address: '',            // The crypo wallet address
+      description: ''
+    }
+
+    this.invoices.push(newInvoice)
+    return newInvoice
+  }
 }
 
-const validateCredentials = (username, password) => {
-  return db.users.find(user => {
-    return user.username === username && user.password === password
-  })
-}
+const db = new Db()
 
 const generateToken = () => {
   return Guid.raw()
@@ -33,10 +68,7 @@ const onlyUser = (req, res, next) => {
 
   if (!token) return reject()
 
-  const user = db.users.find(user => {
-    return user.tokens.some(t => t === token)
-  })
-
+  const user = db.findUserByToken(token)
   // If the user is not signed in, we'll reject em
   if (!user) return reject()
 
@@ -60,7 +92,7 @@ app.post('/signup', (req, res) => {
   const { username, password } = req.body
   const token = generateToken()
 
-  db.users.push({ username, password, tokens: [token] })
+  db.addUser({ username, password, tokens: [token] })
 
   res.cookie('token', token)
   res.status(201).send(token)
@@ -71,7 +103,7 @@ app.post('/signin', (req, res) => {
 
   const { username, password } = req.body
 
-  const user = validateCredentials(username, password)
+  const user = db.validateCredentials(username, password)
 
   if (user) {
     const token = generateToken()
@@ -102,7 +134,7 @@ app.get('/signout', onlyUser, (req, res) => {
 app.get('/invoices', onlyUser, (req, res) => {
   const user = req.user
 
-  const invoices = db.invoices.find(invoice => invoice.username === user.username)
+  const invoices = db.findInvoicesByUsername(username)
 
   res.format({
     json: () => {
@@ -113,6 +145,17 @@ app.get('/invoices', onlyUser, (req, res) => {
       res.sendFile(path.resolve(__dirname, './index.html'))
     }
   })
+})
+
+app.post('/create', onlyUser, (req, res) => {
+  const user = req.user
+
+  console.log('/create', user)
+
+  const invoice = db.createInvoiceForUsername(user.username)
+
+  res.json(invoice)
+
 })
 
 // Serve the html

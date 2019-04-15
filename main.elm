@@ -6,6 +6,8 @@ import Html exposing (..)
 import Html.Attributes exposing (attribute, autofocus, class, classList, href, placeholder)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
+import Json.Decode as Decode
+import Json.Decode.Pipeline exposing (required)
 import Json.Encode as Encode
 import Url
 
@@ -20,6 +22,33 @@ usernamePasswordJsonEncoder username password =
         [ ( "username", Encode.string username )
         , ( "password", Encode.string password )
         ]
+
+
+type alias Invoice =
+    { id : String
+    , username : String
+    , date : String
+    , total : Float
+    , paid : Float
+    , to : String
+    , from : String
+    , address : String
+    , description : String
+    }
+
+
+invoiceJsonDecoder : Decode.Decoder Invoice
+invoiceJsonDecoder =
+    Decode.succeed Invoice
+        |> required "id" Decode.string
+        |> required "username" Decode.string
+        |> required "date" Decode.string
+        |> required "total" Decode.float
+        |> required "paid" Decode.float
+        |> required "to" Decode.string
+        |> required "from" Decode.string
+        |> required "address" Decode.string
+        |> required "description" Decode.string
 
 
 signin : String -> String -> Cmd Msg
@@ -43,6 +72,15 @@ signup username password =
 signout : Url.Url -> Cmd Msg
 signout url =
     Nav.load (Url.toString url)
+
+
+createInvoice : Cmd Msg
+createInvoice =
+    Http.post
+        { url = "/create"
+        , body = Http.jsonBody (Encode.object [])
+        , expect = Http.expectJson CreateInvoiceResult invoiceJsonDecoder
+        }
 
 
 
@@ -81,6 +119,7 @@ type alias Model =
     , username : String
     , password : String
     , page : String
+    , invoices : List Invoice
     }
 
 
@@ -92,6 +131,8 @@ type Msg
     | UpdatePassword String
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
+    | CreateInvoice
+    | CreateInvoiceResult (Result Http.Error Invoice)
 
 
 type alias Flags =
@@ -108,6 +149,7 @@ init flags url key =
       , username = ""
       , password = ""
       , page = "/"
+      , invoices = []
       }
     , if flags.isSignedIn then
         if url.path == pages.signin then
@@ -148,10 +190,20 @@ update msg model =
                 Ok _ ->
                     ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True }, Nav.pushUrl model.key pages.invoices )
 
+        CreateInvoice ->
+            ( model, createInvoice )
+
+        CreateInvoiceResult result ->
+            case result of
+                Err err ->
+                    ( model, Cmd.none )
+
+                Ok invoice ->
+                    ( { model | invoices = invoice :: model.invoices }, Cmd.none )
+
         UrlChanged url ->
             ( { model | page = url.path }, Cmd.none )
 
-        -- TODO Working on signout button
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
@@ -160,7 +212,7 @@ update msg model =
                             ( model, signout url )
 
                         _ ->
-                            ( model, Nav.load url.path )
+                            ( model, Nav.pushUrl model.key url.path )
 
                 Browser.External url ->
                     ( model, Nav.load url )
@@ -243,6 +295,7 @@ homePage model =
         [ section [ class "hero is-success is-fullheight" ]
             [ navbar model
             , title
+            , a [ class "is-link", href "/invoices" ] [ text "invoices" ]
             ]
         ]
     }
@@ -283,12 +336,35 @@ signinPage model =
     }
 
 
+invoicesToUl : List Invoice -> Html Msg
+invoicesToUl invoices =
+    ul []
+        (List.map
+            (\i ->
+                li []
+                    [ a [ href ("/invoice/" ++ i.id) ]
+                        [ h3 [] [ text i.date ]
+                        ]
+                    , span [] [ text i.from ]
+                    ]
+            )
+            invoices
+        )
+
+
 invoicesPage : Model -> Browser.Document Msg
 invoicesPage model =
     { title = "Invoice Generator | Invoices"
     , body =
         [ navbar model
-        , div [] [ text "invoices" ]
+        , h1 [] [ text "invoices" ]
+        , invoicesToUl model.invoices
+        , button [ class "button is-success", onClick CreateInvoice ]
+            [ span [ class "icon" ]
+                [ i [ class "fab fa-plus" ] []
+                ]
+            , span [] [ text "Create Invoice!" ]
+            ]
         ]
     }
 
