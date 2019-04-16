@@ -65,6 +65,13 @@ class Db {
     this.invoices.push(newInvoice)
     return newInvoice
   }
+
+  updateInvoice(invoice) {
+    const newInvoices = this.invoices.filter(i => i.id !== invoice.id)
+    newInvoices.push(invoice)
+    this.invoices = newInvoices
+    return newInvoices
+  }
 }
 
 const db = new Db()
@@ -173,7 +180,17 @@ app.post('/create', onlyUser, (req, res) => {
   const invoice = db.createInvoiceForUsername(user.username)
 
   res.json(invoice)
+})
 
+app.put('/update', onlyUser, (req, res) => {
+  const user = req.user
+  const invoice = req.body
+
+  db.updateInvoice(invoice)
+
+  console.log('/update', user, invoice, db.invoices)
+
+  return res.json(invoice)
 })
 
 // Serve the html

@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (attribute, autofocus, class, classList, href, placeholder, type_)
+import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
 import Json.Decode as Decode
@@ -25,17 +25,19 @@ usernamePasswordJsonEncoder username password =
         ]
 
 
-type alias Invoice =
-    { id : String
-    , username : String
-    , date : String
-    , total : Float
-    , paid : Float
-    , to : String
-    , from : String
-    , address : String
-    , description : String
-    }
+invoiceJsonEncoder : Invoice -> Encode.Value
+invoiceJsonEncoder invoice =
+    Encode.object
+        [ ( "id", Encode.string invoice.id )
+        , ( "username", Encode.string invoice.username )
+        , ( "date", Encode.string invoice.date )
+        , ( "total", Encode.float invoice.total )
+        , ( "paid", Encode.float invoice.paid )
+        , ( "to", Encode.string invoice.to )
+        , ( "from", Encode.string invoice.from )
+        , ( "address", Encode.string invoice.address )
+        , ( "description", Encode.string invoice.description )
+        ]
 
 
 defaultInvoice : Invoice
@@ -106,6 +108,28 @@ fetchInvoices =
         }
 
 
+updateInvoice : Invoice -> Cmd Msg
+updateInvoice invoice =
+    Http.request
+        { method = "PUT"
+        , headers = []
+        , url = "/update"
+        , body = Http.jsonBody (invoiceJsonEncoder invoice)
+        , expect = Http.expectJson UpdateInvoiceResult invoiceJsonDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+getInvoice : Model -> String -> Invoice
+getInvoice model id =
+    let
+        invoice =
+            List.filter (\i -> i.id == id) model.invoices |> List.head
+    in
+    Maybe.withDefault defaultInvoice invoice
+
+
 
 -- MAIN
 
@@ -139,11 +163,25 @@ type alias Model =
     { key : Nav.Key
     , isSigningIn : Bool
     , isSigningUp : Bool
+    , isUpdatingInvoice : Bool
     , isSignedIn : Bool
     , username : String
     , password : String
     , route : Route
     , invoices : List Invoice
+    }
+
+
+type alias Invoice =
+    { id : String
+    , username : String
+    , date : String
+    , total : Float
+    , paid : Float
+    , to : String
+    , from : String
+    , address : String
+    , description : String
     }
 
 
@@ -153,6 +191,12 @@ type Msg
     | SignInResult (Result Http.Error String)
     | UpdateUsername String
     | UpdatePassword String
+    | UpdateInvoiceTotal String Float
+    | UpdateInvoiceTo String String
+    | UpdateInvoiceFrom String String
+    | UpdateInvoiceDescritpion String String
+    | UpdateInvoiceResult (Result Http.Error Invoice)
+    | UpdateInvoice Invoice
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | CreateInvoice
@@ -170,6 +214,7 @@ init flags url key =
     ( { key = key
       , isSigningIn = False
       , isSigningUp = False
+      , isUpdatingInvoice = False
       , isSignedIn = flags.isSignedIn
       , username = ""
       , password = ""
@@ -224,7 +269,7 @@ update msg model =
                     ( model, Cmd.none )
 
                 Ok invoice ->
-                    ( { model | invoices = invoice :: model.invoices }, Cmd.none )
+                    ( { model | invoices = invoice :: model.invoices }, Nav.pushUrl model.key ("/invoices/" ++ invoice.id) )
 
         FetchInvoicesResult result ->
             case result of
@@ -233,6 +278,57 @@ update msg model =
 
                 Ok invoices ->
                     ( { model | invoices = invoices }, Cmd.none )
+
+        UpdateInvoiceTo id to ->
+            let
+                invoice =
+                    getInvoice model id
+
+                invoices =
+                    List.filter (\i -> i.id /= id) model.invoices
+            in
+            ( { model | invoices = { invoice | to = to } :: invoices }, Cmd.none )
+
+        UpdateInvoiceFrom id from ->
+            let
+                invoice =
+                    getInvoice model id
+
+                invoices =
+                    List.filter (\i -> i.id /= id) model.invoices
+            in
+            ( { model | invoices = { invoice | from = from } :: invoices }, Cmd.none )
+
+        UpdateInvoiceTotal id total ->
+            let
+                invoice =
+                    getInvoice model id
+
+                invoices =
+                    List.filter (\i -> i.id /= id) model.invoices
+            in
+            ( { model | invoices = { invoice | total = total } :: invoices }, Cmd.none )
+
+        UpdateInvoiceDescritpion id description ->
+            let
+                invoice =
+                    getInvoice model id
+
+                invoices =
+                    List.filter (\i -> i.id /= id) model.invoices
+            in
+            ( { model | invoices = { invoice | description = description } :: invoices }, Cmd.none )
+
+        UpdateInvoice invoice ->
+            ( { model | isUpdatingInvoice = True }, updateInvoice invoice )
+
+        UpdateInvoiceResult result ->
+            case result of
+                Ok _ ->
+                    ( { model | isUpdatingInvoice = False }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
         UrlChanged url ->
             let
@@ -289,22 +385,6 @@ title =
     div [ class "container" ]
         [ div [ class "hero has-text-centered level" ]
             [ h1 [ class "" ] [ text "Invoice Generator" ]
-            ]
-        ]
-
-
-searchBar : Html Msg
-searchBar =
-    nav [ class "level" ]
-        [ div [ class "level-item" ]
-            [ div [ class "field has-addons" ]
-                [ p [ class "control" ]
-                    [ input [ class "input", placeholder "Type stuff here" ] []
-                    ]
-                , p [ class "control" ]
-                    [ button [ class "button" ] [ text "Do Stuff" ]
-                    ]
-                ]
             ]
         ]
 
@@ -396,9 +476,8 @@ invoicesToUl invoices =
             (\i ->
                 li []
                     [ a [ href ("/invoices/" ++ i.id) ]
-                        [ h3 [] [ text i.date ]
+                        [ h3 [] [ text (i.date ++ " to: " ++ i.to) ]
                         ]
-                    , span [] [ text i.from ]
                     ]
             )
             invoices
@@ -412,7 +491,7 @@ invoicesPage model =
         [ navbar model
         , h1 [] [ text "invoices" ]
         , invoicesToUl model.invoices
-        , button [ class "button is-success", onClick CreateInvoice ]
+        , button [ class "button is-info", onClick CreateInvoice ]
             [ span [ class "icon" ]
                 [ i [ class "fas fa-plus" ] []
                 ]
@@ -422,13 +501,9 @@ invoicesPage model =
     }
 
 
-getInvoice : Model -> String -> Invoice
-getInvoice model id =
-    let
-        invoice =
-            List.filter (\i -> i.id == id) model.invoices |> List.head
-    in
-    Maybe.withDefault defaultInvoice invoice
+onUpdateTotal : String -> String -> Msg
+onUpdateTotal id string =
+    UpdateInvoiceTotal id (Maybe.withDefault 0 (String.toFloat string))
 
 
 invoicePage : Model -> String -> Browser.Document Msg
@@ -442,7 +517,37 @@ invoicePage model id =
         [ navbar model
         , section [ class "section" ]
             [ div [ class "container" ]
-                [ h1 [ class "title" ] [ text invoice.id ]
+                [ h1 [ class "title" ] [ text invoice.date ]
+                , h3 [ class "subtitle" ] [ text invoice.id ]
+                , div [ class "level" ]
+                    [ div [ class "level-left" ]
+                        [ span [ class "level-item" ] [ text "to:" ]
+                        , textarea [ class "level-item textarea", value invoice.to, placeholder "For whom is this invoice destined?", onInput (UpdateInvoiceTo id) ] []
+                        ]
+                    , div [ class "level-right" ]
+                        [ span [ class "level-item" ] [ text "from:" ]
+                        , textarea [ class "level-item textarea", value invoice.from, placeholder "Who gets the money money?", onInput (UpdateInvoiceFrom id) ] []
+                        ]
+                    ]
+                , div [ class "level" ]
+                    [ span [ class "level-item" ] [ text "description:" ]
+                    , textarea [ class "level-item textarea", value invoice.description, placeholder "Describe the work done, etc.", onInput (UpdateInvoiceDescritpion id) ] []
+                    ]
+                , div [ class "level" ]
+                    [ span [ class "level-item" ] [ text "wallet address:" ]
+                    , span [ class "level-item" ] [ text invoice.address ]
+                    ]
+                , div [ class "level" ]
+                    [ div [ class "level-left" ]
+                        [ span [ class "level-item" ] [ text "total:" ]
+                        , input [ class "level-item input", String.fromFloat invoice.total |> value, placeholder "How many money money?", onInput (onUpdateTotal id) ] []
+                        ]
+                    , div [ class "level-right" ]
+                        [ span [ class "level-item" ] [ text "paid:" ]
+                        , code [ class "level-item" ] [ String.fromFloat invoice.paid |> text ]
+                        ]
+                    ]
+                , button [ class "button is-info", classList [ ( "is-loading", model.isUpdatingInvoice ) ], onClick (UpdateInvoice invoice) ] [ text "Update Invoice!" ]
                 ]
             ]
         ]
