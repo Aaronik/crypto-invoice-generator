@@ -186,6 +186,8 @@ app.put('/update', onlyUser, (req, res) => {
   const user = req.user
   const invoice = req.body
 
+  if (invoice.username !== user.username) return res.status(401).send()
+
   db.updateInvoice(invoice)
 
   console.log('/update', user, invoice, db.invoices)

@@ -380,33 +380,30 @@ subscriptions model =
 -- VIEW
 
 
-title : Html Msg
-title =
-    div [ class "container" ]
-        [ div [ class "hero has-text-centered level" ]
-            [ h1 [ class "" ] [ text "Invoice Generator" ]
-            ]
-        ]
-
-
 navbar : Model -> Html Msg
 navbar model =
-    nav [ class "navbar is-primary" ]
-        [ div [ class "navbar-brand" ]
-            [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
-            ]
-        , div [ class "navbar-end" ]
-            [ a [ class "navbar-item", href "/signout" ]
-                [ text
-                    (if model.isSignedIn then
-                        "Sign Out"
-
-                     else
-                        ""
-                    )
+    if model.isSignedIn then
+        nav [ class "navbar is-primary" ]
+            [ div [ class "navbar-brand" ]
+                [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
+                ]
+            , div [ class "navbar-menu" ]
+                [ div [ class "navbar-start" ]
+                    [ a [ class "navbar-item", href "/invoices" ] [ text "Invoices" ]
+                    , a [ class "navbar-item", href "/wallets" ] [ text "Wallets" ]
+                    ]
+                ]
+            , div [ class "navbar-end" ]
+                [ a [ class "navbar-item", href "/signout" ] [ text "Sign Out" ]
                 ]
             ]
-        ]
+
+    else
+        nav [ class "navbar is-primary" ]
+            [ div [ class "navbar-end" ]
+                [ a [ class "navbar-item", href "/signin" ] [ text "Sign In" ]
+                ]
+            ]
 
 
 primaryInput : String -> String -> String -> (String -> Msg) -> Html Msg
@@ -425,10 +422,11 @@ homePage : Model -> Browser.Document Msg
 homePage model =
     { title = "Invoice Generator | Home"
     , body =
-        [ section [ class "hero is-success is-fullheight" ]
-            [ navbar model
-            , title
-            , a [ class "is-link", href "/invoices" ] [ text "invoices" ]
+        [ navbar model
+        , section [ class "hero is-success is-fullheight" ]
+            [ div [ class "container has-text-centered" ]
+                [ h1 [ class "title" ] [ text "Invoice Generator" ]
+                ]
             ]
         ]
     }
@@ -471,17 +469,37 @@ signinPage model =
 
 invoicesToUl : List Invoice -> Html Msg
 invoicesToUl invoices =
-    ul []
-        (List.map
-            (\i ->
-                li []
-                    [ a [ href ("/invoices/" ++ i.id) ]
-                        [ h3 [] [ text (i.date ++ " to: " ++ i.to) ]
+    if List.isEmpty invoices then
+        div [ class "section" ]
+            [ div [ class "container" ]
+                [ article [ class "message is-info" ]
+                    [ div [ class "message-header" ]
+                        [ p [] [ text "No Invoices!" ]
                         ]
+                    , div [ class "message-body" ] [ text "Click the button below to create one :)" ]
                     ]
-            )
-            invoices
-        )
+                ]
+            ]
+
+    else
+        div [ class "section" ]
+            [ div [ class "container" ]
+                [ aside [ class "menu" ]
+                    [ p [ class "menu-label" ] [ text "Your Invoices" ]
+                    , ul [ class "menu-list" ]
+                        (List.map
+                            (\i ->
+                                li []
+                                    [ a [ href ("/invoices/" ++ i.id) ]
+                                        [ span [] [ text (i.date ++ " to: " ++ i.to) ]
+                                        ]
+                                    ]
+                            )
+                            invoices
+                        )
+                    ]
+                ]
+            ]
 
 
 invoicesPage : Model -> Browser.Document Msg
@@ -489,13 +507,16 @@ invoicesPage model =
     { title = "Invoice Generator | Invoices"
     , body =
         [ navbar model
-        , h1 [] [ text "invoices" ]
         , invoicesToUl model.invoices
-        , button [ class "button is-info", onClick CreateInvoice ]
-            [ span [ class "icon" ]
-                [ i [ class "fas fa-plus" ] []
+        , div [ class "section" ]
+            [ div [ class "container" ]
+                [ button [ class "button is-info", onClick CreateInvoice ]
+                    [ span [ class "icon" ]
+                        [ i [ class "fas fa-plus" ] []
+                        ]
+                    , span [] [ text "Create Invoice!" ]
+                    ]
                 ]
-            , span [] [ text "Create Invoice!" ]
             ]
         ]
     }
@@ -587,8 +608,7 @@ toRoute string =
 
 view : Model -> Browser.Document Msg
 view model =
-    -- TODO for a cleaner, elmier way of routing here, use types:
-    -- https://elmprogramming.com/routing.html
+    -- TODO Need a wallets page
     case model.route of
         HomeRoute ->
             homePage model
