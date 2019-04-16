@@ -144,6 +144,7 @@ app.post('/signup', (req, res) => {
   db.addUser({ username, password, tokens: [token] })
 
   res.cookie('token', token)
+  res.cookie('username', username)
   res.status(201).send(token)
 })
 
@@ -158,6 +159,7 @@ app.post('/signin', (req, res) => {
     const token = generateToken()
     user.tokens.push(token)
     res.cookie('token', token)
+    res.cookie('username', username)
 
     return res.status(201).json({ token })
   } else {
@@ -176,6 +178,7 @@ app.get('/signout', onlyUser, (req, res) => {
 
   // nix the token from the cookies
   res.clearCookie('token')
+  res.clearCookie('username')
 
   res.redirect('/')
 })

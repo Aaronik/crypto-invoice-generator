@@ -17,7 +17,8 @@
       Elm.Main.init({
         node: document.getElementById('app-container'),
         flags: {
-          isSignedIn: document.cookie !== "" // If there are any cookies, we're signed in. Will change if ever use other cookies than auth.
+          isSignedIn: !!document.cookie.split(';').filter((item) => item.trim().startsWith('token=')).length,
+          username: document.cookie.replace(/(?:(?:^|.*;\s*)username\s*\=\s*([^;]*).*$)|^.*$/, "$1")
         }
       })
     </script>

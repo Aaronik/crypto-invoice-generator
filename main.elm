@@ -178,6 +178,7 @@ type alias Model =
     , password : String
     , route : Route
     , invoices : List Invoice
+    , error : String
     }
 
 
@@ -212,10 +213,12 @@ type Msg
     | CreateInvoiceResult (Result Http.Error Invoice)
     | FetchInvoicesResult (Result Http.Error (List Invoice))
     | FetchInvoiceResult (Result Http.Error Invoice)
+    | DismissError
 
 
 type alias Flags =
     { isSignedIn : Bool
+    , username : String
     }
 
 
@@ -226,36 +229,22 @@ init flags url key =
       , isSigningUp = False
       , isUpdatingInvoice = False
       , isSignedIn = flags.isSignedIn
-      , username = ""
+      , username = flags.username
       , password = ""
       , route = HomeRoute
       , invoices = []
+      , error = ""
       }
     , Nav.pushUrl key url.path
     )
 
 
-
--- if flags.isSignedIn then
---     case (toRoute url) of
---         SignInRoute ->
---             Nav.pushUrl key "/"
---         _ ->
---            Cmd.none
---   else
---       if url.path == "/"
---     case (toRoute url) of
---         InvoicesRoute ->
---             Nav.pushUrl key "/signin"
---         _ ->
---             Cmd.none
--- )
--- UPDATE
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        DismissError ->
+            ( { model | error = "" }, Cmd.none )
+
         UpdateUsername username ->
             ( { model | username = username }, Cmd.none )
 
@@ -271,10 +260,10 @@ update msg model =
         SignInResult result ->
             case result of
                 Err err ->
-                    ( { model | isSigningIn = False, isSigningUp = False }, Cmd.none )
+                    ( { model | isSigningIn = False, isSigningUp = False, error = "Could not sign in! Please try again." }, Cmd.none )
 
                 Ok _ ->
-                    ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True }, Nav.pushUrl model.key "/invoices" )
+                    ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True, error = "" }, Nav.pushUrl model.key "/invoices" )
 
         CreateInvoice ->
             ( model, createInvoice )
@@ -282,30 +271,30 @@ update msg model =
         CreateInvoiceResult result ->
             case result of
                 Err err ->
-                    ( model, Cmd.none )
+                    ( { model | error = "Error creating invoice!" }, Cmd.none )
 
                 Ok invoice ->
-                    ( { model | invoices = invoice :: model.invoices }, Nav.pushUrl model.key ("/invoices/" ++ invoice.id) )
+                    ( { model | invoices = invoice :: model.invoices, error = "" }, Nav.pushUrl model.key ("/invoices/" ++ invoice.id) )
 
         FetchInvoiceResult result ->
             case result of
                 Err err ->
-                    ( model, Cmd.none )
+                    ( { model | error = "Error fetching invoice!" }, Cmd.none )
 
                 Ok invoice ->
                     let
                         invoices =
                             List.filter (\i -> i.id /= invoice.id) model.invoices
                     in
-                    ( { model | invoices = invoice :: invoices }, Cmd.none )
+                    ( { model | invoices = invoice :: invoices, error = "" }, Cmd.none )
 
         FetchInvoicesResult result ->
             case result of
                 Err err ->
-                    ( model, Cmd.none )
+                    ( { model | error = "Error fetching invoices!" }, Cmd.none )
 
                 Ok invoices ->
-                    ( { model | invoices = invoices }, Cmd.none )
+                    ( { model | invoices = invoices, error = "" }, Cmd.none )
 
         UpdateInvoiceTo id to ->
             let
@@ -353,10 +342,10 @@ update msg model =
         UpdateInvoiceResult result ->
             case result of
                 Ok _ ->
-                    ( { model | isUpdatingInvoice = False }, Nav.pushUrl model.key "/invoices" )
+                    ( { model | isUpdatingInvoice = False, error = "" }, Nav.pushUrl model.key "/invoices" )
 
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( { model | error = "Error updating invoice!" }, Cmd.none )
 
         UrlChanged url ->
             let
@@ -373,23 +362,23 @@ update msg model =
                             else
                                 Nav.pushUrl model.key "/signin"
                     in
-                    ( { model | route = route }, cmd )
+                    ( { model | route = route, error = "" }, cmd )
 
                 InvoiceRoute id ->
-                    ( { model | route = route }, fetchInvoice id )
+                    ( { model | route = route, error = "" }, fetchInvoice id )
 
                 _ ->
-                    ( { model | route = route }, Cmd.none )
+                    ( { model | route = route, error = "" }, Cmd.none )
 
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
                     case url.path of
                         "/signout" ->
-                            ( model, signout url )
+                            ( { model | error = "" }, signout url )
 
                         _ ->
-                            ( model, Nav.pushUrl model.key url.path )
+                            ( { model | error = "" }, Nav.pushUrl model.key url.path )
 
                 Browser.External url ->
                     ( model, Nav.load url )
@@ -434,6 +423,25 @@ navbar model =
             ]
 
 
+errorView : Model -> Html Msg
+errorView model =
+    if not (String.isEmpty model.error) then
+        section [ class "section" ]
+            [ div [ class "container" ]
+                [ article [ class "message is-danger" ]
+                    [ div [ class "message-header" ]
+                        [ p [] [ text "Sorry, there was a problem:" ]
+                        , button [ class "delete", onClick DismissError ] []
+                        ]
+                    , div [ class "message-body" ] [ text model.error ]
+                    ]
+                ]
+            ]
+
+    else
+        div [] []
+
+
 primaryInput : String -> String -> String -> (String -> Msg) -> Html Msg
 primaryInput pholder icon attType msg =
     div [ class "field" ]
@@ -467,6 +475,7 @@ signinPage model =
     , body =
         [ section [ class "hero is-success is-fullheight" ]
             [ navbar model
+            , errorView model
             , div [ class "hero-body" ]
                 [ div [ class "container" ]
                     [ primaryInput "Username" "user" "" UpdateUsername
@@ -536,6 +545,7 @@ invoicesPage model =
     { title = "Invoice Generator | Invoices"
     , body =
         [ navbar model
+        , errorView model
         , invoicesToUl model.invoices
         , div [ class "section" ]
             [ div [ class "container" ]
@@ -581,6 +591,7 @@ readOnlyInvoicePage model id =
     { title = "Invoice Generator | Invoice"
     , body =
         [ navbar model
+        , errorView model
         , section [ class "section" ]
             [ div [ class "container card" ]
                 [ div [ class "card-content" ]
@@ -630,6 +641,7 @@ writeableInvoicePage model id =
     { title = "Invoice Generator | Invoice"
     , body =
         [ navbar model
+        , errorView model
         , section [ class "section" ]
             [ div [ class "container card" ]
                 [ div [ class "card-content" ]
@@ -676,6 +688,7 @@ notFound model =
     { title = "Invoice Generator | 404"
     , body =
         [ navbar model
+        , errorView model
         , div [] [ text "Not Found!" ]
         ]
     }
