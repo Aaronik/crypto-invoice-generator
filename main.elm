@@ -10,6 +10,7 @@ import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode as Encode
 import Url
+import Url.Parser exposing ((</>), Parser, map, oneOf, parse, s, string, top)
 
 
 
@@ -111,12 +112,13 @@ main =
 -- MODEL
 
 
-pages =
-    { signin = "/signin"
-    , invoices = "/invoices"
-    , signout = "/signout"
-    , home = "/"
-    }
+type Route
+    = HomeRoute
+    | SignInRoute
+    | InvoicesRoute
+    | InvoiceRoute String
+    | SignOutRoute
+    | NotFoundRoute
 
 
 type alias Model =
@@ -126,7 +128,7 @@ type alias Model =
     , isSignedIn : Bool
     , username : String
     , password : String
-    , page : String
+    , route : Route
     , invoices : List Invoice
     }
 
@@ -157,18 +159,18 @@ init flags url key =
       , isSignedIn = flags.isSignedIn
       , username = ""
       , password = ""
-      , page = "/"
+      , route = HomeRoute
       , invoices = []
       }
     , if flags.isSignedIn then
-        if url.path == pages.signin then
-            Nav.pushUrl key pages.home
+        if url.path == "/signin" then
+            Nav.pushUrl key "/"
 
         else
             Nav.pushUrl key url.path
 
       else
-        Nav.pushUrl key pages.signin
+        Nav.pushUrl key "/signin"
     )
 
 
@@ -197,7 +199,7 @@ update msg model =
                     ( { model | isSigningIn = False, isSigningUp = False }, Cmd.none )
 
                 Ok _ ->
-                    ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True }, Nav.pushUrl model.key pages.invoices )
+                    ( { model | isSigningIn = False, isSigningUp = False, isSignedIn = True }, Nav.pushUrl model.key "/invoices" )
 
         CreateInvoice ->
             ( model, createInvoice )
@@ -219,12 +221,16 @@ update msg model =
                     ( { model | invoices = invoices }, Cmd.none )
 
         UrlChanged url ->
+            let
+                route =
+                    toRoute (Url.toString url)
+            in
             case url.path of
                 "/invoices" ->
-                    ( { model | page = url.path }, fetchInvoices )
+                    ( { model | route = route }, fetchInvoices )
 
                 _ ->
-                    ( { model | page = url.path }, Cmd.none )
+                    ( { model | route = route }, Cmd.none )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -285,7 +291,7 @@ navbar model =
             [ a [ class "navbar-item", href "/" ] [ text "Invoice Generator" ]
             ]
         , div [ class "navbar-end" ]
-            [ a [ class "navbar-item", href pages.signout ]
+            [ a [ class "navbar-item", href "/signout" ]
                 [ text
                     (if model.isSignedIn then
                         "Sign Out"
@@ -391,12 +397,12 @@ invoicesPage model =
     }
 
 
-invoicePage : Model -> Browser.Document Msg
-invoicePage model =
+invoicePage : Model -> String -> Browser.Document Msg
+invoicePage model id =
     { title = "Invoice Generator | Invoice"
     , body =
         [ navbar model
-        , div [] [ text "invoice" ]
+        , div [] [ text ("invoice " ++ id) ]
         ]
     }
 
@@ -411,22 +417,46 @@ notFound model =
     }
 
 
+routeParser : Parser (Route -> a) a
+routeParser =
+    oneOf
+        [ map HomeRoute top
+        , map SignInRoute top
+        , map InvoicesRoute top
+        , map InvoiceRoute (s "invoices" </> string)
+        , map SignOutRoute top
+        ]
+
+
+toRoute : String -> Route
+toRoute string =
+    case Url.fromString string of
+        Nothing ->
+            NotFoundRoute
+
+        Just url ->
+            Maybe.withDefault NotFoundRoute (parse routeParser url)
+
+
 view : Model -> Browser.Document Msg
 view model =
     -- TODO for a cleaner, elmier way of routing here, use types:
     -- https://elmprogramming.com/routing.html
-    case model.page of
-        "/" ->
+    case model.route of
+        HomeRoute ->
             homePage model
 
-        "/signin" ->
+        SignInRoute ->
             signinPage model
 
-        "/invoices" ->
+        SignOutRoute ->
+            homePage model
+
+        InvoicesRoute ->
             invoicesPage model
 
-        "/invoices/*" ->
-            invoicePage model
+        InvoiceRoute id ->
+            invoicePage model id
 
-        _ ->
+        NotFoundRoute ->
             notFound model
