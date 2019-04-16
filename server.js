@@ -4,11 +4,15 @@ const spawn        = require('child_process').spawnSync
 const bodyParser   = require('body-parser')
 const cookieParser = require('cookie-parser')
 const Guid         = require('guid')
+const Web3         = require('web3')
+
+const web3 = new Web3('https://ropsten.infura.io/v3/ce994c88153644e6ae630a577cf28b17')
 
 class Db {
   constructor() {
     this.users = [] // { username: string, password: string, tokens: string[] }
     this.invoices = [] // { username: string, ... }
+    this.wallets = [] // { username: string, address: string, secret: string, invoiceId: string }
   }
 
   addUser(user) {
@@ -31,16 +35,30 @@ class Db {
     return this.invoices.filter(invoice => invoice.username === username)
   }
 
-  createInvoiceForUsername(username) {
-    const newInvoice = {
-      id: Guid.raw(),
+  createWallet(username, invoiceId) {
+    const web3Wallet = web3.eth.accounts.create()
+
+    return {
+      invoiceId: invoiceId,
       username: username,
-      date: new Date(),       // When it's created
-      total: 0,               // The initial charge
-      paid: 0,                // How much has been paid
+      address: web3Wallet.address,
+      secret: web3Wallet.privateKey
+    }
+  }
+
+  createInvoiceForUsername(username) {
+    const invoiceId = Guid.raw()
+    const wallet = this.createWallet(username, invoiceId)
+
+    const newInvoice = {
+      id: invoiceId,
+      username: username,
+      date: new Date(),        // When it's created
+      total: 0,                // The initial charge
+      paid: 0,                 // How much has been paid
       to: '',
       from: '',
-      address: '',            // The crypo wallet address
+      address: wallet.address, // The crypo wallet address
       description: ''
     }
 

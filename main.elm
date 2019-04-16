@@ -38,6 +38,20 @@ type alias Invoice =
     }
 
 
+defaultInvoice : Invoice
+defaultInvoice =
+    { id = "loading..."
+    , username = "loading..."
+    , date = "loading..."
+    , total = 0
+    , paid = 0
+    , to = "loading..."
+    , from = "loading..."
+    , address = "loading..."
+    , description = "loading..."
+    }
+
+
 invoiceJsonDecoder : Decode.Decoder Invoice
 invoiceJsonDecoder =
     Decode.succeed Invoice
@@ -237,6 +251,9 @@ update msg model =
                     in
                     ( { model | route = route }, cmd )
 
+                InvoiceRoute _ ->
+                    ( { model | route = route }, fetchInvoices )
+
                 _ ->
                     ( { model | route = route }, Cmd.none )
 
@@ -405,12 +422,29 @@ invoicesPage model =
     }
 
 
+getInvoice : Model -> String -> Invoice
+getInvoice model id =
+    let
+        invoice =
+            List.filter (\i -> i.id == id) model.invoices |> List.head
+    in
+    Maybe.withDefault defaultInvoice invoice
+
+
 invoicePage : Model -> String -> Browser.Document Msg
 invoicePage model id =
+    let
+        invoice =
+            getInvoice model id
+    in
     { title = "Invoice Generator | Invoice"
     , body =
         [ navbar model
-        , div [] [ text ("invoice " ++ id) ]
+        , section [ class "section" ]
+            [ div [ class "container" ]
+                [ h1 [ class "title" ] [ text invoice.id ]
+                ]
+            ]
         ]
     }
 
