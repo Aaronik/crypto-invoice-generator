@@ -558,15 +558,22 @@ onUpdateTotal id string =
 
 invoicePage : Model -> String -> Browser.Document Msg
 invoicePage model id =
-    if model.isSignedIn then
-        signedInInvoicePage model id
+    let
+        invoice =
+            getInvoice model id
+
+        isMine =
+            invoice.username == model.username
+    in
+    if model.isSignedIn && isMine then
+        writeableInvoicePage model id
 
     else
-        signedOutInvoicePage model id
+        readOnlyInvoicePage model id
 
 
-signedOutInvoicePage : Model -> String -> Browser.Document Msg
-signedOutInvoicePage model id =
+readOnlyInvoicePage : Model -> String -> Browser.Document Msg
+readOnlyInvoicePage model id =
     let
         invoice =
             getInvoice model id
@@ -614,8 +621,8 @@ signedOutInvoicePage model id =
     }
 
 
-signedInInvoicePage : Model -> String -> Browser.Document Msg
-signedInInvoicePage model id =
+writeableInvoicePage : Model -> String -> Browser.Document Msg
+writeableInvoicePage model id =
     let
         invoice =
             getInvoice model id
