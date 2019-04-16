@@ -139,8 +139,6 @@ const onlyUser = (redirRoute) => (req, res, next) => {
 app.use(express.static(path.resolve(__dirname, './dist')))
 
 app.post('/signup', (req, res) => {
-  console.log("/signup", req.body)
-
   const { username, password } = req.body
   const token = generateToken()
 
@@ -154,8 +152,6 @@ app.post('/signup', (req, res) => {
 })
 
 app.post('/signin', (req, res) => {
-  console.log("/signin", req.body)
-
   const { username, password } = req.body
 
   const user = db.validateCredentials(username, password)
@@ -176,8 +172,6 @@ app.get('/signout', onlyUser('/signin'), (req, res) => {
   const token = req.cookies.token
   const user = req.user
 
-  console.log('/signout:', user)
-
   // invalidate this token in the db
   user.tokens = user.tokens.filter(t => t !== token)
 
@@ -193,8 +187,6 @@ app.get('/invoices', onlyUser('/signin'), async (req, res) => {
 
   const invoices = await db.findInvoicesByUsername(user.username)
 
-  console.log('/invoices', user, invoices, db.wallets)
-
   res.format({
     json: () => {
       res.status(200).json(invoices)
@@ -209,12 +201,9 @@ app.get('/invoices', onlyUser('/signin'), async (req, res) => {
 app.get('/invoices/:id', async (req, res) => {
   const user = req.user
 
-  console.log('GET /invoices/' + req.params.id)
-
   res.format({
     json: async () => {
       const invoice = await db.findInvoiceByInvoiceId(req.params.id)
-      console.log('invoice:', invoice)
       if (invoice) res.status(200).json(invoice)
       else         res.status(404).json()
     },
@@ -227,8 +216,6 @@ app.get('/invoices/:id', async (req, res) => {
 
 app.get('/wallets', onlyUser("/signin"), (req, res) => {
   const user = req.user
-
-  console.log('GET /wallets/' + user)
 
   res.format({
     json: () => {
@@ -245,8 +232,6 @@ app.get('/wallets', onlyUser("/signin"), (req, res) => {
 app.post('/create', onlyUser(), (req, res) => {
   const user = req.user
 
-  console.log('/create', user)
-
   const invoice = db.createInvoiceForUsername(user.username)
 
   res.json(invoice)
@@ -259,8 +244,6 @@ app.put('/update', onlyUser(), (req, res) => {
   if (invoice.username !== user.username) return res.status(401).send()
 
   db.updateInvoice(invoice)
-
-  console.log('/update', user, invoice, db.invoices)
 
   return res.json(invoice)
 })
