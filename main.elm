@@ -195,8 +195,8 @@ type Msg
     | UpdateInvoiceTo String String
     | UpdateInvoiceFrom String String
     | UpdateInvoiceDescritpion String String
-    | UpdateInvoiceResult (Result Http.Error Invoice)
     | UpdateInvoice Invoice
+    | UpdateInvoiceResult (Result Http.Error Invoice)
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | CreateInvoice
@@ -325,7 +325,7 @@ update msg model =
         UpdateInvoiceResult result ->
             case result of
                 Ok _ ->
-                    ( { model | isUpdatingInvoice = False }, Cmd.none )
+                    ( { model | isUpdatingInvoice = False }, Nav.pushUrl model.key "/invoices" )
 
                 Err _ ->
                     ( model, Cmd.none )
@@ -560,7 +560,7 @@ invoicePage model id =
                     ]
                 , div [ class "level" ]
                     [ div [ class "level-left" ]
-                        [ span [ class "level-item" ] [ text "total:" ]
+                        [ span [ class "level-item" ] [ text "total (in wei):" ]
                         , input [ class "level-item input", String.fromFloat invoice.total |> value, placeholder "How many money money?", onInput (onUpdateTotal id) ] []
                         ]
                     , div [ class "level-right" ]

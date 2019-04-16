@@ -6,6 +6,11 @@ const cookieParser = require('cookie-parser')
 const Guid         = require('guid')
 const Web3         = require('web3')
 
+const app = express()
+
+app.use(bodyParser.json())
+app.use(cookieParser())
+
 const web3 = new Web3('https://ropsten.infura.io/v3/ce994c88153644e6ae630a577cf28b17')
 
 class Db {
@@ -17,6 +22,10 @@ class Db {
 
   addUser(user) {
     this.users.push(user)
+  }
+
+  hasUser(username) {
+    return this.users.some(user => user.username === username)
   }
 
   validateCredentials(username, password) {
@@ -31,8 +40,16 @@ class Db {
     })
   }
 
-  findInvoicesByUsername(username) {
-    return this.invoices.filter(invoice => invoice.username === username)
+  async findInvoicesByUsername(username) {
+    let invoices = this.invoices.filter(invoice => invoice.username === username)
+
+    await Promise.all(invoices.map(async invoice => {
+      const balance = await web3.eth.getBalance(invoice.address)
+      invoice.paid = Number(balance)
+      return invoice
+    }))
+
+    return invoices
   }
 
   createWallet(username, invoiceId) {
@@ -63,6 +80,7 @@ class Db {
     }
 
     this.invoices.push(newInvoice)
+    this.wallets.push(wallet)
     return newInvoice
   }
 
@@ -102,20 +120,16 @@ const onlyUser = (req, res, next) => {
   next()
 }
 
-const app = express()
-
-app.use(bodyParser.json())
-app.use(cookieParser())
-
 // Serve all the static files
 app.use(express.static(path.resolve(__dirname, './dist')))
 
 app.post('/signup', (req, res) => {
-  // TODO handle duplicate usernames
   console.log("/signup", req.body)
 
   const { username, password } = req.body
   const token = generateToken()
+
+  if (db.hasUser(username)) return res.status(409).send("Username taken")
 
   db.addUser({ username, password, tokens: [token] })
 
@@ -156,10 +170,12 @@ app.get('/signout', onlyUser, (req, res) => {
   res.redirect('/')
 })
 
-app.get('/invoices', onlyUser, (req, res) => {
+app.get('/invoices', onlyUser, async (req, res) => {
   const user = req.user
 
-  const invoices = db.findInvoicesByUsername(user.username)
+  const invoices = await db.findInvoicesByUsername(user.username)
+
+  console.log('/invoices', user, invoices, db.wallets)
 
   res.format({
     json: () => {
@@ -197,7 +213,6 @@ app.put('/update', onlyUser, (req, res) => {
 
 // Serve the html
 app.get(['/', '/signin', '/invoices', '/invoices/:id'], (req, res) => {
-  console.log(req.params)
   res.sendFile(path.resolve(__dirname, './index.html'))
 })
 
