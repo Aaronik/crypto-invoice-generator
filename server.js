@@ -62,6 +62,10 @@ class Db {
     return invoice
   }
 
+  findWalletsByUsername(username) {
+    return this.wallets.filter(wallet => wallet.username === username)
+  }
+
   createWallet(username, invoiceId) {
     const web3Wallet = web3.eth.accounts.create()
 
@@ -111,10 +115,11 @@ const generateToken = () => {
 // Only allow signed in users through this route
 // Use this as express middleware on routes only
 // signed in users should be able to access.
-const onlyUser = (req, res, next) => {
+const onlyUser = (redirRoute) => (req, res, next) => {
   const reject = () => {
     res.clearCookie('token') // make sure client doesn't have lingering cookies
-    res.status(401).send('Must be signed in')
+    if (redirRoute) res.redirect(302, redirRoute)
+    else res.status(401).send('Must be signed in')
   }
 
   const token = req.cookies.token
@@ -167,7 +172,7 @@ app.post('/signin', (req, res) => {
   }
 })
 
-app.get('/signout', onlyUser, (req, res) => {
+app.get('/signout', onlyUser('/signin'), (req, res) => {
   const token = req.cookies.token
   const user = req.user
 
@@ -183,7 +188,7 @@ app.get('/signout', onlyUser, (req, res) => {
   res.redirect('/')
 })
 
-app.get('/invoices', onlyUser, async (req, res) => {
+app.get('/invoices', onlyUser('/signin'), async (req, res) => {
   const user = req.user
 
   const invoices = await db.findInvoicesByUsername(user.username)
@@ -220,7 +225,24 @@ app.get('/invoices/:id', async (req, res) => {
   })
 })
 
-app.post('/create', onlyUser, (req, res) => {
+app.get('/wallets', onlyUser("/signin"), (req, res) => {
+  const user = req.user
+
+  console.log('GET /wallets/' + user)
+
+  res.format({
+    json: () => {
+      const wallets = db.findWalletsByUsername(user.username)
+      res.json(wallets)
+    },
+
+    html: () => {
+      res.sendFile(path.resolve(__dirname, './index.html'))
+    }
+  })
+})
+
+app.post('/create', onlyUser(), (req, res) => {
   const user = req.user
 
   console.log('/create', user)
@@ -230,7 +252,7 @@ app.post('/create', onlyUser, (req, res) => {
   res.json(invoice)
 })
 
-app.put('/update', onlyUser, (req, res) => {
+app.put('/update', onlyUser(), (req, res) => {
   const user = req.user
   const invoice = req.body
 
@@ -244,7 +266,7 @@ app.put('/update', onlyUser, (req, res) => {
 })
 
 // Serve the html
-app.get(['/', '/signin', '/invoices', '/invoices/:id'], (req, res) => {
+app.get(['/', '/signin', '/invoices', '/invoices/:id', '/wallets'], (req, res) => {
   res.sendFile(path.resolve(__dirname, './index.html'))
 })
 

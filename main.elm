@@ -69,6 +69,13 @@ invoiceJsonDecoder =
         |> required "description" Decode.string
 
 
+walletJsonDecoder : Decode.Decoder Wallet
+walletJsonDecoder =
+    Decode.succeed Wallet
+        |> required "secret" Decode.string
+        |> required "address" Decode.string
+
+
 signin : String -> String -> Cmd Msg
 signin username password =
     Http.post
@@ -114,6 +121,14 @@ fetchInvoice id =
     Http.get
         { url = "/invoices/" ++ id
         , expect = Http.expectJson FetchInvoiceResult invoiceJsonDecoder
+        }
+
+
+fetchWallets : Cmd Msg
+fetchWallets =
+    Http.get
+        { url = "/wallets"
+        , expect = Http.expectJson FetchWalletsResult (Decode.list walletJsonDecoder)
         }
 
 
@@ -165,6 +180,7 @@ type Route
     | InvoicesRoute
     | InvoiceRoute String
     | SignOutRoute
+    | WalletsRoute
     | NotFoundRoute
 
 
@@ -178,7 +194,14 @@ type alias Model =
     , password : String
     , route : Route
     , invoices : List Invoice
+    , wallets : List Wallet
     , error : String
+    }
+
+
+type alias Wallet =
+    { secret : String
+    , address : String
     }
 
 
@@ -213,6 +236,7 @@ type Msg
     | CreateInvoiceResult (Result Http.Error Invoice)
     | FetchInvoicesResult (Result Http.Error (List Invoice))
     | FetchInvoiceResult (Result Http.Error Invoice)
+    | FetchWalletsResult (Result Http.Error (List Wallet))
     | DismissError
 
 
@@ -233,6 +257,7 @@ init flags url key =
       , password = ""
       , route = HomeRoute
       , invoices = []
+      , wallets = []
       , error = ""
       }
     , Nav.pushUrl key url.path
@@ -295,6 +320,14 @@ update msg model =
 
                 Ok invoices ->
                     ( { model | invoices = invoices, error = "" }, Cmd.none )
+
+        FetchWalletsResult result ->
+            case result of
+                Err err ->
+                    ( { model | error = "Error fetching wallets!" }, Cmd.none )
+
+                Ok wallets ->
+                    ( { model | wallets = wallets, error = "" }, Cmd.none )
 
         UpdateInvoiceTo id to ->
             let
@@ -366,6 +399,9 @@ update msg model =
 
                 InvoiceRoute id ->
                     ( { model | route = route, error = "" }, fetchInvoice id )
+
+                WalletsRoute ->
+                    ( { model | route = route, error = "" }, fetchWallets )
 
                 _ ->
                     ( { model | route = route, error = "" }, Cmd.none )
@@ -683,6 +719,30 @@ writeableInvoicePage model id =
     }
 
 
+walletsPage : Model -> Browser.Document Msg
+walletsPage model =
+    { title = "Invoice Generator | Wallets"
+    , body =
+        [ navbar model
+        , errorView model
+        , section [ class "section" ]
+            [ div [ class "container has-text-centered" ]
+                [ p [] [ text "wallet address / secret" ]
+                , ul []
+                    (List.map
+                        (\w ->
+                            li []
+                                [ span [] [ text (w.address ++ " / " ++ w.secret) ]
+                                ]
+                        )
+                        model.wallets
+                    )
+                ]
+            ]
+        ]
+    }
+
+
 notFound : Model -> Browser.Document Msg
 notFound model =
     { title = "Invoice Generator | 404"
@@ -702,6 +762,7 @@ routeParser =
         , map InvoicesRoute (s "invoices")
         , map InvoiceRoute (s "invoices" </> string)
         , map SignOutRoute (s "signout")
+        , map WalletsRoute (s "wallets")
         ]
 
 
@@ -717,7 +778,6 @@ toRoute string =
 
 view : Model -> Browser.Document Msg
 view model =
-    -- TODO Need a wallets page
     case model.route of
         HomeRoute ->
             homePage model
@@ -733,6 +793,9 @@ view model =
 
         InvoiceRoute id ->
             invoicePage model id
+
+        WalletsRoute ->
+            walletsPage model
 
         NotFoundRoute ->
             notFound model
