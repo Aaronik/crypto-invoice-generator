@@ -421,10 +421,10 @@ routeParser : Parser (Route -> a) a
 routeParser =
     oneOf
         [ map HomeRoute top
-        , map SignInRoute top
-        , map InvoicesRoute top
+        , map SignInRoute (s "signin")
+        , map InvoicesRoute (s "invoices")
         , map InvoiceRoute (s "invoices" </> string)
-        , map SignOutRoute top
+        , map SignOutRoute (s "signout")
         ]
 
 
