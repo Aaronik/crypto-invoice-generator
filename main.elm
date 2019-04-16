@@ -401,8 +401,20 @@ invoicePage model =
     }
 
 
+notFound : Model -> Browser.Document Msg
+notFound model =
+    { title = "Invoice Generator | 404"
+    , body =
+        [ navbar model
+        , div [] [ text "Not Found!" ]
+        ]
+    }
+
+
 view : Model -> Browser.Document Msg
 view model =
+    -- TODO for a cleaner, elmier way of routing here, use types:
+    -- https://elmprogramming.com/routing.html
     case model.page of
         "/" ->
             homePage model
@@ -413,5 +425,8 @@ view model =
         "/invoices" ->
             invoicesPage model
 
-        _ ->
+        "/invoices/*" ->
             invoicePage model
+
+        _ ->
+            notFound model
