@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
+import Debug
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onSubmit)
@@ -108,6 +109,14 @@ fetchInvoices =
         }
 
 
+fetchInvoice : String -> Cmd Msg
+fetchInvoice id =
+    Http.get
+        { url = "/invoices/" ++ id
+        , expect = Http.expectJson FetchInvoiceResult invoiceJsonDecoder
+        }
+
+
 updateInvoice : Invoice -> Cmd Msg
 updateInvoice invoice =
     Http.request
@@ -202,6 +211,7 @@ type Msg
     | CreateInvoice
     | CreateInvoiceResult (Result Http.Error Invoice)
     | FetchInvoicesResult (Result Http.Error (List Invoice))
+    | FetchInvoiceResult (Result Http.Error Invoice)
 
 
 type alias Flags =
@@ -221,19 +231,25 @@ init flags url key =
       , route = HomeRoute
       , invoices = []
       }
-    , if flags.isSignedIn then
-        if url.path == "/signin" then
-            Nav.pushUrl key "/"
-
-        else
-            Nav.pushUrl key url.path
-
-      else
-        Nav.pushUrl key "/signin"
+    , Nav.pushUrl key url.path
     )
 
 
 
+-- if flags.isSignedIn then
+--     case (toRoute url) of
+--         SignInRoute ->
+--             Nav.pushUrl key "/"
+--         _ ->
+--            Cmd.none
+--   else
+--       if url.path == "/"
+--     case (toRoute url) of
+--         InvoicesRoute ->
+--             Nav.pushUrl key "/signin"
+--         _ ->
+--             Cmd.none
+-- )
 -- UPDATE
 
 
@@ -270,6 +286,18 @@ update msg model =
 
                 Ok invoice ->
                     ( { model | invoices = invoice :: model.invoices }, Nav.pushUrl model.key ("/invoices/" ++ invoice.id) )
+
+        FetchInvoiceResult result ->
+            case result of
+                Err err ->
+                    ( model, Cmd.none )
+
+                Ok invoice ->
+                    let
+                        invoices =
+                            List.filter (\i -> i.id /= invoice.id) model.invoices
+                    in
+                    ( { model | invoices = invoice :: invoices }, Cmd.none )
 
         FetchInvoicesResult result ->
             case result of
@@ -347,8 +375,8 @@ update msg model =
                     in
                     ( { model | route = route }, cmd )
 
-                InvoiceRoute _ ->
-                    ( { model | route = route }, fetchInvoices )
+                InvoiceRoute id ->
+                    ( { model | route = route }, fetchInvoice id )
 
                 _ ->
                     ( { model | route = route }, Cmd.none )
@@ -425,7 +453,8 @@ homePage model =
         [ navbar model
         , section [ class "hero is-success is-fullheight" ]
             [ div [ class "container has-text-centered" ]
-                [ h1 [ class "title" ] [ text "Invoice Generator" ]
+                [ br [] []
+                , h1 [ class "title" ] [ text "Invoice Generator" ]
                 ]
             ]
         ]
@@ -529,6 +558,15 @@ onUpdateTotal id string =
 
 invoicePage : Model -> String -> Browser.Document Msg
 invoicePage model id =
+    if model.isSignedIn then
+        signedInInvoicePage model id
+
+    else
+        signedOutInvoicePage model id
+
+
+signedOutInvoicePage : Model -> String -> Browser.Document Msg
+signedOutInvoicePage model id =
     let
         invoice =
             getInvoice model id
@@ -537,38 +575,89 @@ invoicePage model id =
     , body =
         [ navbar model
         , section [ class "section" ]
-            [ div [ class "container" ]
-                [ h1 [ class "title" ] [ text invoice.date ]
-                , h3 [ class "subtitle" ] [ text invoice.id ]
-                , div [ class "level" ]
-                    [ div [ class "level-left" ]
-                        [ span [ class "level-item" ] [ text "to:" ]
-                        , textarea [ class "level-item textarea", value invoice.to, placeholder "For whom is this invoice destined?", onInput (UpdateInvoiceTo id) ] []
+            [ div [ class "container card" ]
+                [ div [ class "card-content" ]
+                    [ h1 [ class "title" ] [ text invoice.date ]
+                    , h3 [ class "subtitle" ] [ text invoice.id ]
+                    , div [ class "level" ]
+                        [ div [ class "level-left" ]
+                            [ span [ class "level-item" ] [ text "to:" ]
+                            , p [ class "level-item" ] [ text invoice.to ]
+                            ]
+                        , div [ class "level-right" ]
+                            [ span [ class "level-item" ] [ text "from:" ]
+                            , p [ class "level-item" ] [ text invoice.from ]
+                            ]
                         ]
-                    , div [ class "level-right" ]
-                        [ span [ class "level-item" ] [ text "from:" ]
-                        , textarea [ class "level-item textarea", value invoice.from, placeholder "Who gets the money money?", onInput (UpdateInvoiceFrom id) ] []
+                    , div [ class "level" ]
+                        [ span [ class "level-item" ] [ text "description:" ]
+                        , p [ class "level-item" ] [ text invoice.description ]
+                        ]
+                    , div [ class "level" ]
+                        [ span [ class "level-item" ] [ text "wallet address:" ]
+                        , span [ class "level-item" ] [ text invoice.address ]
+                        ]
+                    , div [ class "level" ]
+                        [ div [ class "level-left" ]
+                            [ span [ class "level-item" ] [ text "total (in wei):" ]
+                            , code [ class "level-item" ] [ String.fromFloat invoice.total |> text ]
+                            ]
+                        , div [ class "level-right" ]
+                            [ span [ class "level-item" ] [ text "paid:" ]
+                            , code [ class "level-item" ] [ String.fromFloat invoice.paid |> text ]
+                            ]
                         ]
                     ]
-                , div [ class "level" ]
-                    [ span [ class "level-item" ] [ text "description:" ]
-                    , textarea [ class "level-item textarea", value invoice.description, placeholder "Describe the work done, etc.", onInput (UpdateInvoiceDescritpion id) ] []
-                    ]
-                , div [ class "level" ]
-                    [ span [ class "level-item" ] [ text "wallet address:" ]
-                    , span [ class "level-item" ] [ text invoice.address ]
-                    ]
-                , div [ class "level" ]
-                    [ div [ class "level-left" ]
-                        [ span [ class "level-item" ] [ text "total (in wei):" ]
-                        , input [ class "level-item input", String.fromFloat invoice.total |> value, placeholder "How many money money?", onInput (onUpdateTotal id) ] []
+                ]
+            ]
+        ]
+    }
+
+
+signedInInvoicePage : Model -> String -> Browser.Document Msg
+signedInInvoicePage model id =
+    let
+        invoice =
+            getInvoice model id
+    in
+    { title = "Invoice Generator | Invoice"
+    , body =
+        [ navbar model
+        , section [ class "section" ]
+            [ div [ class "container card" ]
+                [ div [ class "card-content" ]
+                    [ h1 [ class "title" ] [ text invoice.date ]
+                    , h3 [ class "subtitle" ] [ text invoice.id ]
+                    , div [ class "level" ]
+                        [ div [ class "level-left" ]
+                            [ span [ class "level-item" ] [ text "to:" ]
+                            , textarea [ class "level-item textarea", value invoice.to, placeholder "Whose wallet does this invoice seek to pilfer?", onInput (UpdateInvoiceTo id) ] []
+                            ]
+                        , div [ class "level-right" ]
+                            [ span [ class "level-item" ] [ text "from:" ]
+                            , textarea [ class "level-item textarea", value invoice.from, placeholder "Who gets the money money?", onInput (UpdateInvoiceFrom id) ] []
+                            ]
                         ]
-                    , div [ class "level-right" ]
-                        [ span [ class "level-item" ] [ text "paid:" ]
-                        , code [ class "level-item" ] [ String.fromFloat invoice.paid |> text ]
+                    , div [ class "level" ]
+                        [ span [ class "level-item" ] [ text "description:" ]
+                        , textarea [ class "level-item textarea", value invoice.description, placeholder "Describe the work done, etc.", onInput (UpdateInvoiceDescritpion id) ] []
                         ]
+                    , div [ class "level" ]
+                        [ span [ class "level-item" ] [ text "wallet address:" ]
+                        , span [ class "level-item" ] [ text invoice.address ]
+                        ]
+                    , div [ class "level" ]
+                        [ div [ class "level-left" ]
+                            [ span [ class "level-item" ] [ text "total (in wei):" ]
+                            , input [ class "level-item input", String.fromFloat invoice.total |> value, placeholder "How many money money?", onInput (onUpdateTotal id) ] []
+                            ]
+                        , div [ class "level-right" ]
+                            [ span [ class "level-item" ] [ text "paid:" ]
+                            , code [ class "level-item" ] [ String.fromFloat invoice.paid |> text ]
+                            ]
+                        ]
+                    , button [ class "button is-info", classList [ ( "is-loading", model.isUpdatingInvoice ) ], onClick (UpdateInvoice invoice) ] [ text "Update Invoice!" ]
                     ]
-                , button [ class "button is-info", classList [ ( "is-loading", model.isUpdatingInvoice ) ], onClick (UpdateInvoice invoice) ] [ text "Update Invoice!" ]
                 ]
             ]
         ]

@@ -52,6 +52,16 @@ class Db {
     return invoices
   }
 
+  async findInvoiceByInvoiceId(id) {
+    let invoice = this.invoices.find(invoice => invoice.id === id)
+
+    if (!invoice) return null
+
+    const balance = await web3.eth.getBalance(invoice.address)
+    invoice.paid = Number(balance)
+    return invoice
+  }
+
   createWallet(username, invoiceId) {
     const web3Wallet = web3.eth.accounts.create()
 
@@ -104,7 +114,7 @@ const generateToken = () => {
 const onlyUser = (req, res, next) => {
   const reject = () => {
     res.clearCookie('token') // make sure client doesn't have lingering cookies
-    res.redirect(302, '/signin') // redirect to signin
+    res.status(401).send('Must be signed in')
   }
 
   const token = req.cookies.token
@@ -180,6 +190,25 @@ app.get('/invoices', onlyUser, async (req, res) => {
   res.format({
     json: () => {
       res.status(200).json(invoices)
+    },
+
+    html: () => {
+      res.sendFile(path.resolve(__dirname, './index.html'))
+    }
+  })
+})
+
+app.get('/invoices/:id', async (req, res) => {
+  const user = req.user
+
+  console.log('GET /invoices/' + req.params.id)
+
+  res.format({
+    json: async () => {
+      const invoice = await db.findInvoiceByInvoiceId(req.params.id)
+      console.log('invoice:', invoice)
+      if (invoice) res.status(200).json(invoice)
+      else         res.status(404).json()
     },
 
     html: () => {
