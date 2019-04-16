@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (attribute, autofocus, class, classList, href, placeholder)
+import Html.Attributes exposing (attribute, autofocus, class, classList, href, placeholder, type_)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Http exposing (..)
 import Json.Decode as Decode
@@ -225,9 +225,17 @@ update msg model =
                 route =
                     toRoute (Url.toString url)
             in
-            case url.path of
-                "/invoices" ->
-                    ( { model | route = route }, fetchInvoices )
+            case route of
+                InvoicesRoute ->
+                    let
+                        cmd =
+                            if model.isSignedIn then
+                                fetchInvoices
+
+                            else
+                                Nav.pushUrl model.key "/signin"
+                    in
+                    ( { model | route = route }, cmd )
 
                 _ ->
                     ( { model | route = route }, Cmd.none )
@@ -304,13 +312,13 @@ navbar model =
         ]
 
 
-primaryInput : String -> (String -> Msg) -> Html Msg
-primaryInput pholder msg =
+primaryInput : String -> String -> String -> (String -> Msg) -> Html Msg
+primaryInput pholder icon attType msg =
     div [ class "field" ]
         [ div [ class "control has-icons-left" ]
-            [ input [ class "input is-primary is-large", placeholder pholder, autofocus True, onInput msg ] []
+            [ input [ class "input is-primary is-large", placeholder pholder, autofocus True, onInput msg, type_ attType ] []
             , span [ class "icon is-large is-left" ]
-                [ i [ class "fas fa-envelope fa-xl" ] []
+                [ i [ class ("fas fa-xl fa-" ++ icon) ] []
                 ]
             ]
         ]
@@ -337,8 +345,8 @@ signinPage model =
             [ navbar model
             , div [ class "hero-body" ]
                 [ div [ class "container" ]
-                    [ primaryInput "Username" UpdateUsername
-                    , primaryInput "Password" UpdatePassword
+                    [ primaryInput "Username" "user" "" UpdateUsername
+                    , primaryInput "Password" "lock" "password" UpdatePassword
                     , div [ class "field is-grouped level" ]
                         [ p [ class "control level-item" ]
                             [ button
@@ -389,7 +397,7 @@ invoicesPage model =
         , invoicesToUl model.invoices
         , button [ class "button is-success", onClick CreateInvoice ]
             [ span [ class "icon" ]
-                [ i [ class "fab fa-plus" ] []
+                [ i [ class "fas fa-plus" ] []
                 ]
             , span [] [ text "Create Invoice!" ]
             ]
