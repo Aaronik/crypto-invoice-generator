@@ -1,5 +1,7 @@
 # crypto-invoice-generator
 
+This is a small project for the Wyre technical interview
+
 ## Running
 
 Should be as simple as
