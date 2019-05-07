@@ -20,14 +20,17 @@ class Db {
     this.wallets = [] // { username: string, address: string, secret: string, invoiceId: string }
   }
 
+  // Adds user to DB
   addUser(user) {
     this.users.push(user)
   }
 
+  // => bool -- is user in DB
   hasUser(username) {
     return this.users.some(user => user.username === username)
   }
 
+  // do creds match with any user in db
   validateCredentials(username, password) {
     return this.users.find(user => {
       return user.username === username && user.password === password
@@ -40,6 +43,7 @@ class Db {
     })
   }
 
+  // returns list of invoices for given username
   async findInvoicesByUsername(username) {
     let invoices = this.invoices.filter(invoice => invoice.username === username)
 
@@ -229,6 +233,7 @@ app.get('/wallets', onlyUser("/signin"), (req, res) => {
   })
 })
 
+// create invoice
 app.post('/create', onlyUser(), (req, res) => {
   const user = req.user
 
