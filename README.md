@@ -1,6 +1,6 @@
 # crypto-invoice-generator
 
-This is a small project for the Wyre technical interview
+This is a small project demonstrating clientside interop with Ethereum.
 
 ## Running
 
