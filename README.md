@@ -1,6 +1,7 @@
 # crypto-invoice-generator
 
 This is a small project demonstrating clientside interop with Ethereum.
+It uses web3 to interact with Infura.
 
 ## Running
 
